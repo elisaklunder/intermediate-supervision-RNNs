@@ -46,8 +46,7 @@ These modes are implemented in the `MazeSolver` class (`deepthinking/utils/maze_
 ### 4. Additional Features
 
 - **Step parameter**: Controls the granularity of intermediate supervision steps
-- **Extended analysis tools**: Additional scripts for analyzing model behavior, convergence patterns, and performance across different maze sizes
-- **Enhanced visualization**: Tools for visualizing intermediate reasoning steps and maze exploration patterns
+- **Extended analysis tools**: Additional scripts for analyzing model behavior, convergence patterns, and performance across different maze sizes and for visualizing intermediate reasoning steps and maze exploration patterns
 
 ## Requirements
 
