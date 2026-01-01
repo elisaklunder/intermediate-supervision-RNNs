@@ -1,16 +1,14 @@
 import os
 import sys
-
-project_root = os.path.abspath(
-    os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-)
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
-
 from collections import deque
 from typing import List, Optional, Sequence, Tuple
 
+# Add project root directory to Python path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+import matplotlib.pyplot as plt
 import numpy as np
 
 Position = Tuple[int, int]  # (row, col) on the patch grid
@@ -236,7 +234,7 @@ class MazeSolver:
 
             final_frame = self._mask_from_patches(solution_path, (H, W), offs)
 
-            for _ in range(10):
+            for _ in range(len(frames) // 10):
                 frames.append(final_frame)
 
         return frames
