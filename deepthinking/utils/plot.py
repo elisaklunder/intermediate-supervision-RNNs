@@ -116,7 +116,6 @@ def plot_maze_and_target(input, targets, save_str=None):
     plt.close()
 
 
-    
 def plot_maze_and_intermediate_masks(
     inp, masks, masks_per_row=10, type="sometype", save_str=None
 ):
@@ -141,56 +140,56 @@ def plot_maze_and_intermediate_masks(
     for idx, mask in enumerate(masks, start=1):
         if idx % 100 == 0:  # Less frequent progress updates
             print(f"Processing mask {idx}/{n_masks}")
-        
+
         ax = axs[idx]
-        # Use imshow instead of sns.heatmap - MUCH faster!
-        ax.imshow(mask, cmap='gray', vmin=0, vmax=1)
+        ax.imshow(mask, cmap="gray", vmin=0, vmax=1)
         ax.axis("off")
 
     # Hide unused subplots
-    for ax in axs[len(masks) + 1:]:
+    for ax in axs[len(masks) + 1 :]:
         ax.set_visible(False)
 
     fig.tight_layout()
     if save_str is None:
         ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         save_str = f"figures/masks_example_{type}-{ts}.png"
-    
+
     print(f"Saving to {save_str}")
     fig.savefig(save_str, bbox_inches="tight", dpi=100)
     plt.close(fig)
+
 
 def plot_maze_and_intermediate_masks_ultra_fast(
     inp, masks, masks_per_row=10, type="sometype", save_str=None
 ):
     n_masks = len(masks)
     n_rows = (n_masks + masks_per_row - 1) // masks_per_row
-    
+
     fig = plt.figure(figsize=(2.0 * masks_per_row, 2.0 * (n_rows + 1)))
-    
+
     ax0 = fig.add_subplot(n_rows + 1, masks_per_row, 1)
     if isinstance(inp, np.ndarray):
         img = np.transpose(inp.squeeze(), (1, 2, 0))
     else:
         img = inp.cpu().squeeze().permute(1, 2, 0)
     ax0.imshow(img)
-    ax0.axis('off')
-    
+    ax0.axis("off")
+
     for idx, mask in enumerate(masks):
         if idx % 200 == 0:
-            print(f"Processing mask {idx+1}/{n_masks}")
-        
+            print(f"Processing mask {idx + 1}/{n_masks}")
+
         ax = fig.add_subplot(n_rows + 1, masks_per_row, idx + 2)
-        ax.imshow(mask, cmap='gray', vmin=0, vmax=1, aspect='equal')
-        ax.axis('off')
-    
+        ax.imshow(mask, cmap="gray", vmin=0, vmax=1, aspect="equal")
+        ax.axis("off")
+
     plt.tight_layout()
     if save_str is None:
         ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         save_str = f"figures/masks_example_{type}-{ts}.png"
-    
+
     print(f"Saving to {save_str}")
-    fig.savefig(save_str, bbox_inches='tight', dpi=100)
+    fig.savefig(save_str, bbox_inches="tight", dpi=100)
     plt.close(fig)
 
 
@@ -209,7 +208,7 @@ def animate_prediction_sequence(
     fig.suptitle(title_prefix, fontsize=14)
 
     maze_rgb = np.transpose(input_maze, (1, 2, 0))
-    wall_mask = np.all(maze_rgb == wall_colour, axis=-1)
+    # wall_mask = np.all(maze_rgb == wall_colour, axis=-1)
 
     ax_input.imshow(maze_rgb)
     ax_input.set_title("Input maze")
@@ -220,13 +219,14 @@ def animate_prediction_sequence(
     )
     _BLACK_RED_WHITE.set_bad(color="#000000")
 
-    masked_target = ma.array(target, mask=wall_mask)
-    ax_target.imshow(masked_target, cmap=_BLACK_RED_WHITE, vmin=0.0, vmax=1.0)
+    # masked_target = ma.array(target, mask=wall_mask)
+    ax_target.imshow(target, cmap=_BLACK_RED_WHITE, vmin=0.0, vmax=1.0)
     ax_target.set_title("Target solution")
     ax_target.axis("off")
 
     im_pred = ax_pred.imshow(
-        ma.array(probs_seq[0], mask=wall_mask),
+        # ma.array(probs_seq[0], mask=wall_mask),
+        probs_seq[0],
         cmap=_BLACK_RED_WHITE,
         vmin=0.0,
         vmax=1.0,
@@ -236,7 +236,8 @@ def animate_prediction_sequence(
     ax_pred.axis("off")
 
     def update(frame):
-        im_pred.set_array(ma.array(probs_seq[frame], mask=wall_mask))
+        # im_pred.set_array(ma.array(probs_seq[frame], mask=wall_mask))
+        im_pred.set_array(probs_seq[frame])
         return [im_pred]
 
     frames = len(probs_seq)
@@ -252,7 +253,7 @@ def animate_prediction_sequence(
     except Exception as e:
         print(f"Failed to create animation with error: {e}")
         plt.close(fig)
-        
+
     plt.close(fig)
 
 

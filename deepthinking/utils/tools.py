@@ -23,7 +23,7 @@ from deepthinking.adjectives import adjectives
 from deepthinking.names import names
 
 from .chess_data import prepare_chess_loader
-from .mazes_data import get_mazes, prepare_maze_loader # pylint: disable=W0611  # noqa: F401
+from .mazes_data import prepare_maze_loader_new, prepare_maze_loader
 from .prefix_sums_data import prepare_prefix_loader
 from .warmup import ExponentialWarmup
 
@@ -48,21 +48,15 @@ def get_dataloaders(problem_args):
             test_data=problem_args.test_data,
         )
     elif problem_args.name == "mazes":
-        return prepare_maze_loader(
+        return prepare_maze_loader_new(
+            dataset=problem_args.dataset,
+            maze_size_train=problem_args.train_data,
+            maze_size_test=problem_args.test_data,
             train_batch_size=problem_args.hyp.train_batch_size,
             test_batch_size=problem_args.hyp.test_batch_size,
-            train_data=problem_args.train_data,
-            test_data=problem_args.test_data,
+            percolation=problem_args.percolation,
+            deadend_start=problem_args.deadend_start,
         )
-        # return get_mazes(
-        #     dataset="maze-dataset",
-        #     maze_size_train=problem_args.train_data,
-        #     maze_size_test=problem_args.test_data,
-        #     train_batch_size=problem_args.hyp.train_batch_size,
-        #     test_batch_size=problem_args.hyp.test_batch_size,
-        #     percolation=0,
-        #     deadend_start=True,
-        # )
 
     elif problem_args.name == "chess":
         return prepare_chess_loader(

@@ -180,7 +180,7 @@ def test_stable(
     device,
     return_outputs=False,
     n_outputs=10,
-    p_thresh=0.8,
+    p_thresh=0.9,
 ):
     """
     Per-sample stopping: stop after 5 stable, high-confidence masks.
@@ -248,9 +248,11 @@ def test_stable(
                             (last_masks[b][k] == last_masks[b][0]).all()
                             for k in range(1, 5)
                         )
+                        non_wall_mask = inputs[b, 0] > 0
+                        valid_mask = (masks[b] == 1) & non_wall_mask
                         high = (
-                            (probs[b][masks[b] == 1] >= p_thresh).all()
-                            if masks[b].sum() > 0
+                            (probs[b][valid_mask] >= p_thresh).all()
+                            if valid_mask.sum() > 0
                             else False
                         )
 

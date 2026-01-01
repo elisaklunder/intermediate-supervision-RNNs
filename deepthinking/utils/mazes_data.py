@@ -29,12 +29,12 @@ set_serialize_minimal_threshold(int(10**7))  # prevent crashing on large dataset
 # pylint: disable=R0912, R0915, E1101, E1102, C0103, W0702, R0914, C0116, C0115, W0611
 
 
-def get_mazes(
+def prepare_maze_loader_new(
     dataset="easy-to-hard-data",
     maze_size_train=9,
-    maze_size_test=11,
-    num_mazes_train=10000,
-    num_mazes_test=1000,
+    maze_size_test=33,
+    num_mazes_train=50000,
+    num_mazes_test=10000,
     gen="dfs_perc",
     percolation=0.0,
     deadend_start=True,
@@ -245,33 +245,33 @@ def prepare_maze_loader(
     return loaders
 
 
-if __name__ == "__main__":
-    dataset = "maze-dataset"
-    # dataset =  "maze-dataset"
+# if __name__ == "__main__":
+#     dataset = "maze-dataset"
+#     # dataset =  "maze-dataset"
 
-    loaders = get_mazes(
-        dataset=dataset,
-        maze_size_train=9,
-        maze_size_test=11,
-        num_mazes_train=1000,
-        num_mazes_test=100,
-        gen="dfs_perc",
-        percolation=0.7,
-        deadend_start=False,
-        train_batch_size=32,
-        test_batch_size=32,
-        shuffle=True,
-    )
-    print("Data loaders created successfully.")
-    for key, loader in loaders.items():
-        print(f"{key} loader has {len(loader.dataset)} samples.")
-        for x, y in loader:
-            print(f"Batch shape: {x.shape}, {y.shape}")
-            for maze, target in zip(x, y):
-                print(f"Maze shape: {maze.shape}, Target shape: {target.shape}")
-                plot_maze_and_target(
-                    maze, target, save_str=f"maze_sample_{dataset}_{key}.png"
-                )
-                break
+#     loaders = get_dataloaders_new(
+#         dataset=dataset,
+#         maze_size_train=9,
+#         maze_size_test=11,
+#         num_mazes_train=1000,
+#         num_mazes_test=100,
+#         gen="dfs_perc",
+#         percolation=0.7,
+#         deadend_start=False,
+#         train_batch_size=32,
+#         test_batch_size=32,
+#         shuffle=True,
+#     )
+#     print("Data loaders created successfully.")
+#     for key, loader in loaders.items():
+#         print(f"{key} loader has {len(loader.dataset)} samples.")
+#         for x, y in loader:
+#             print(f"Batch shape: {x.shape}, {y.shape}")
+#             for maze, target in zip(x, y):
+#                 print(f"Maze shape: {maze.shape}, Target shape: {target.shape}")
+#                 plot_maze_and_target(
+#                     maze, target, save_str=f"maze_sample_{dataset}_{key}.png"
+#                 )
+#                 break
 
-            break
+#             break

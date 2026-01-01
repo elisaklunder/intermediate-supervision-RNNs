@@ -1,14 +1,3 @@
-"""dt_net_2d.py
-DeepThinking network 2D.
-
-Collaboratively developed
-by Avi Schwarzschild, Eitan Borgnia,
-Arpit Bansal, and Zeyad Emam.
-
-Developed for DeepThinking project
-October 2021
-"""
-
 import torch
 from torch import nn
 
@@ -113,10 +102,8 @@ class DTNet(nn.Module):
             interim_thought = self.recur_block(recur_input)
             out = self.head(interim_thought)
             all_outputs[:, i] = out
-            prev_output = out.detach()  # detach to avoid unrolling the full graph through all outputs, 
-                                        # not sure!!!
-
-
+            prev_output = out.detach() 
+            
         return out, interim_thought, all_outputs
 
 

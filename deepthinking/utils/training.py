@@ -1,14 +1,3 @@
-"""training.py
-Utilities for training models
-
-Collaboratively developed
-by Avi Schwarzschild, Eitan Borgnia,
-Arpit Bansal, and Zeyad Emam.
-
-Developed for DeepThinking project
-October 2021
-"""
-
 import typing
 from dataclasses import dataclass
 from random import randrange
@@ -106,14 +95,16 @@ def get_output_for_prog_loss(inputs, max_iters, net):
 
 
 def train(net, loaders, mode, train_setup, device):
+    """Updated train function with combined mode"""
+    # if mode == "combined":
+    #     train_loss, acc = train_combined(net, loaders, train_setup, device)
+    #     return train_loss, acc
     if mode == "progressive":
         train_loss, acc = train_progressive(net, loaders, train_setup, device)
-
     elif mode == "intermediate":
         train_loss, acc = train_with_intermediate_supervision(
             net, loaders, train_setup, device
         )
-
     else:
         train_loss, acc = train_default(net, loaders, train_setup, device)
 
@@ -147,8 +138,7 @@ def train_with_intermediate_supervision(net, loaders, train_setup, device):
 
         optimizer.zero_grad()
 
-        if problem == "mazes":
-            mask = inputs.view(inputs.size(0), inputs.size(1), -1).max(dim=1)[0] > 0
+        mask = inputs.view(inputs.size(0), inputs.size(1), -1).max(dim=1)[0] > 0
 
         if alpha != 0:
             paths, path_lens, T_max = build_oracle_batch(
@@ -162,6 +152,8 @@ def train_with_intermediate_supervision(net, loaders, train_setup, device):
                 outputs_max_iters.size(0), outputs_max_iters.size(1), -1
             )
             loss_max_iters = criterion(outputs_max_iters, targets)
+            loss_max_iters = loss_max_iters * mask
+            loss_max_iters = loss_max_iters[mask > 0]
         else:
             loss_max_iters = torch.zeros_like(targets).float()
 
@@ -184,17 +176,16 @@ def train_with_intermediate_supervision(net, loaders, train_setup, device):
                 all_outputs, path_lens
             )  # (B, T)  True where t<path_len
             mask_valid = mask_valid.unsqueeze(-1).unsqueeze(-1)  # (B, T, 1, 1)
+            valid_losses = loss_map * mask_valid
 
-            interm_loss = (loss_map * mask_valid).sum() / mask_valid.sum()
-            interm_loss = interm_loss / T_max 
+            # per-sample normalization
+            sample_losses = valid_losses.sum(dim=[1, 2, 3])  # Sum over T,H,W
+            sample_counts = mask_valid.sum(dim=[1, 2, 3])  # Count valid positions
+            sample_avg_losses = sample_losses / (sample_counts + 1e-8)  # Avoid div by 0
+            interm_loss = sample_avg_losses.mean()
 
         else:
             interm_loss = torch.tensor(0.0, device=inputs.device)
-
-        # === Masking for final loss, for both default and intermediate supervision ===
-        if problem == "mazes":
-            loss_max_iters = loss_max_iters * mask
-            loss_max_iters = loss_max_iters[mask > 0]
 
         # === Combine losses ===
         loss = (1 - alpha) * loss_max_iters.mean() + alpha * interm_loss.mean()
@@ -247,7 +238,7 @@ def train_progressive(net, loaders, train_setup, device):
 
         # get fully unrolled loss if alpha is not 1 (if it is 1, this loss term is not used
         # so we save time by settign it equal to 0).
-        outputs_max_iters, _ = net(inputs, iters_to_do=max_iters)
+        outputs_max_iters, _, _= net(inputs, iters_to_do=max_iters)
         if alpha != 1:
             outputs_max_iters = outputs_max_iters.view(
                 outputs_max_iters.size(0), outputs_max_iters.size(1), -1
@@ -326,7 +317,7 @@ def train_default(net, loaders, train_setup, device):
         optimizer.zero_grad()
 
         # ---------- forward for full budget ----------
-        logits, _ = net(inputs, iters_to_do=max_iters)  # (B, 2, H, W)
+        logits, _, _ = net(inputs, iters_to_do=max_iters)  # (B, 2, H, W)
         logits = logits.view(logits.size(0), logits.size(1), -1)
 
         loss = ce(logits, targets)  # (B, P)

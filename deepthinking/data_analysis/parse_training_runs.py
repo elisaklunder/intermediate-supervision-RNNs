@@ -50,10 +50,6 @@ def main():
     print(f"In total, {num_checkopints} models are saved")
     print(f"Of those, {num_trained} trained, with training accuracy higher than {args.filter}")
     print(tabulate(checkpoints, headers=head))
-    print("")
-    print("Checkpoint directories in copy-pastable form:")
-    for c in checkpoints:
-        print(c[0])
 
 
 if __name__ == "__main__":

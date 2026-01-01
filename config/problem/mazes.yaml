@@ -5,6 +5,9 @@ defaults:
 name: mazes
 test_data: 11
 train_data: 9
+dataset: easy-to-hard-data # or maze-dataset
+percolation: 0.0
+deadend_start: True
 
 model:
   width: 128

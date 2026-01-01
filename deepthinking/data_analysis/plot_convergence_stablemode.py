@@ -1,9 +1,9 @@
 import json
 from pathlib import Path
-
+import argparse
 import matplotlib.pyplot as plt
 import seaborn as sns
-import yaml  # Add yaml import
+import yaml
 
 
 def read_hydra_config(stats_path):
@@ -124,6 +124,12 @@ def visualize_stats(json_path, loader="test"):
     return stats
 
 
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--json_path", type=str, help="Path to the stats.json file.")
+    args = parser.parse_args()
+    visualize_stats(args.json_path)
+
 if __name__ == "__main__":
-    stats_path = "/home/elisa/deep-thinking/outputs/small_mazes_outputspace_step/testing-unweened-Eugenio/stats.json"
-    visualize_stats(stats_path)
+    main()
+
