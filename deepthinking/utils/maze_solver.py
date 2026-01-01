@@ -7,18 +7,13 @@ project_root = os.path.abspath(
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-import heapq
+
 from collections import deque
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import List, Optional, Sequence, Tuple
 
-import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-from tqdm import tqdm
 
-from deepthinking.utils.plot import plot_maze_and_intermediate_masks_ultra_fast
-
-Patch = Tuple[int, int]  # (row, col) on the patch grid
+Position = Tuple[int, int]  # (row, col) on the patch grid
 RGB = np.ndarray  # shape (3, H, W)
 
 
@@ -46,7 +41,7 @@ class MazeSolver:
             raise ValueError("Image dimensions must be multiples of 2.")
         return arr.reshape(h // 2, 2, w // 2, 2)
 
-    def _parse_maze(self, rgb: RGB) -> Tuple[np.ndarray, Patch, Patch]:
+    def _parse_maze(self, rgb: RGB) -> Tuple[np.ndarray, Position, Position]:
         """Return free-mask, start-patch, goal-patch on the patch grid."""
         r, g, b = rgb
         pr, pg, pb = map(self._view_as_patches, (r, g, b))
@@ -61,8 +56,8 @@ class MazeSolver:
         return free, tuple(s_idx[0]), tuple(g_idx[0])
 
     def _bfs_trace(
-        self, free: np.ndarray, start: Patch, goal: Patch
-    ) -> Tuple[List[Patch], List[Patch]]:
+        self, free: np.ndarray, start: Position, goal: Position
+    ) -> Tuple[List[Position], List[Position]]:
         """Perform BFS and return (optimal_path, discovery_sequence)."""
         h2, w2 = free.shape
         visited = np.zeros_like(free, bool)
@@ -70,7 +65,7 @@ class MazeSolver:
 
         q = deque([start])
         visited[start] = True
-        discovered: List[Patch] = [start]
+        discovered: List[Position] = [start]
 
         while q:
             r, c = q.popleft()
@@ -104,14 +99,14 @@ class MazeSolver:
         return 2 * pr + offs[0], 2 * pc + offs[1]
 
     def _toggle_patch(
-        self, mask: np.ndarray, patch: Patch, offs: Tuple[int, int], val: int
+        self, mask: np.ndarray, patch: Position, offs: Tuple[int, int], val: int
     ) -> None:
         """Set the pixels of a patch to a given value."""
         r0, c0 = self._patch_to_pixels(*patch, offs)
         mask[r0 : r0 + 2, c0 : c0 + 2] = val
 
     def _mask_from_patches(
-        self, patches: Sequence[Patch], shape: Tuple[int, int], offs: Tuple[int, int]
+        self, patches: Sequence[Position], shape: Tuple[int, int], offs: Tuple[int, int]
     ) -> np.ndarray:
         """Create a mask with originall maze shape from a list of patches."""
         m = np.zeros(shape, np.uint8)
@@ -121,7 +116,7 @@ class MazeSolver:
 
     def _mask_from_patches_with_values(
         self,
-        patches_values: List[Tuple[Patch, int]],
+        patches_values: List[Tuple[Position, int]],
         shape: Tuple[int, int],
         offs: Tuple[int, int],
     ) -> np.ndarray:
@@ -133,7 +128,7 @@ class MazeSolver:
 
     def _frames_remove(
         self,
-        sequence: Sequence[Patch],
+        sequence: Sequence[Position],
         offs: Tuple[int, int],
         start_mask: np.ndarray,
         step: int = 1,
@@ -151,74 +146,6 @@ class MazeSolver:
     def _manhattan_distance(p1: Tuple[int, int], p2: Tuple[int, int]) -> int:
         return abs(p1[0] - p2[0]) + abs(p1[1] - p2[1])
 
-    def _astar_trace(
-        self, free: np.ndarray, start: Patch, goal: Patch
-    ) -> Tuple[List[Patch], List[Patch]]:
-        """Perform A* search"""
-        h2, w2 = free.shape
-        discovered: List[Patch] = [start]
-
-        open_set = [
-            (
-                self._manhattan_distance(start, goal) + 0,
-                self._manhattan_distance(start, goal),
-                start,
-            )
-        ]
-        heapq.heapify(open_set)
-        closed_set: Set[Patch] = set()
-
-        open_set_elements = {start}
-        g_score: Dict[Patch, int] = {start: 0}
-        parent: Dict[Patch, Patch] = {}
-
-        while open_set:
-            _, _, current_node = heapq.heappop(open_set)
-            open_set_elements.remove(current_node)
-
-            if current_node in closed_set:
-                continue
-
-            closed_set.add(current_node)
-
-            if current_node == goal:
-                path = []
-                node = current_node
-                while node in parent:
-                    path.append(node)
-                    node = parent[node]
-                path.append(start)
-                path.reverse()
-                return path, discovered
-
-            for drow, dcol in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-                nr, nc = current_node[0] + drow, current_node[1] + dcol
-                neighbor = (nr, nc)
-
-                if not (0 <= nr < h2 and 0 <= nc < w2 and free[nr, nc]):
-                    continue
-
-                tentative_g = g_score[current_node] + 1
-
-                if neighbor not in g_score or tentative_g < g_score[neighbor]:
-                    parent[neighbor] = current_node
-                    g_score[neighbor] = tentative_g
-                    f_score = tentative_g + self._manhattan_distance(neighbor, goal)
-
-                    if neighbor not in open_set_elements:
-                        heapq.heappush(
-                            open_set,
-                            (
-                                f_score,
-                                self._manhattan_distance(neighbor, goal),
-                                neighbor,
-                            ),
-                        )
-                        open_set_elements.add(neighbor)
-                        discovered.append(neighbor)
-
-        return [], discovered
-
     def get_dfs_masks(self, input_rgb, step=1) -> List[np.ndarray]:
         """
         DFS with backtracking
@@ -235,7 +162,7 @@ class MazeSolver:
         frame_counter = 0
         found = False
 
-        def dfs(patch: Patch):
+        def dfs(patch: Position):
             nonlocal found, frame_counter
 
             if found:
@@ -281,7 +208,7 @@ class MazeSolver:
             solution_visited = np.zeros_like(free, bool)
             solution_path = []
 
-            def find_solution_path(patch: Patch, path: List[Patch]):
+            def find_solution_path(patch: Position, path: List[Position]):
                 solution_visited[patch] = True
                 path.append(patch)
 
@@ -388,252 +315,12 @@ class MazeSolver:
         discovery_masks.append(self._mask_from_patches(optimal_path, (H, W), offs))
         return discovery_masks
 
-    def get_astar_masks(self, input_rgb, step) -> List[np.ndarray]:
-        """Masks showing A* search progression and final path."""
-        rgb, offs = self._crop_outer_wall(input_rgb)
-        free, start, goal = self._parse_maze(rgb)
-        optimal_path, discovered = self._astar_trace(free, start, goal)
-
-        H, W = input_rgb.shape[1:]
-
-        exploration_masks = [
-            self._mask_from_patches(discovered[:i], (H, W), offs)
-            for i in range(1, len(discovered) + 1, step)
-        ]
-
-        optimal_path_mask = self._mask_from_patches(optimal_path, (H, W), offs)
-        for _ in range(10):
-            exploration_masks.append(optimal_path_mask)
-
-        return exploration_masks
-
-    def get_wall_following_masks(self, input_rgb, step=1) -> List[np.ndarray]:
-        """
-        Right-hand rule wall following with deadend backtracking
-        """
-        rgb, offs = self._crop_outer_wall(input_rgb)
-        free, start, goal = self._parse_maze(rgb)
-        H, W = input_rgb.shape[1:]
-
-        # Directions: North, East, South, West
-        directions = [(-1, 0), (0, 1), (1, 0), (0, -1)]
-
-        current = start
-        direction = 0  # Start facing North
-        path = [current]
-        frames = []
-        frame_counter = 0
-        max_steps = free.sum() * 4  # Prevent infinite loops
-        visited = set([current])
-
-        while current != goal and len(path) < max_steps:
-            # Check if we're at a deadend (can't go forward, right, or left)
-            is_deadend = True
-
-            # Check all possible directions
-            for i in range(4):
-                test_dir = (direction + i) % 4
-                test_pos = (
-                    current[0] + directions[test_dir][0],
-                    current[1] + directions[test_dir][1],
-                )
-
-                if (
-                    0 <= test_pos[0] < free.shape[0]
-                    and 0 <= test_pos[1] < free.shape[1]
-                    and free[test_pos]
-                    and test_pos not in visited
-                ):
-                    is_deadend = False
-                    break
-
-            if is_deadend and current != start:
-                # Backtrack to the last junction
-                path.pop()  # Remove current position
-                if path:
-                    current = path[-1]
-                    # Need to find direction after backtracking
-                    if len(path) >= 2:
-                        prev = path[-2]
-                        # Determine new direction based on previous movement
-                        dx, dy = current[0] - prev[0], current[1] - prev[1]
-                        for i, (dx_dir, dy_dir) in enumerate(directions):
-                            if (dx, dy) == (dx_dir, dy_dir):
-                                direction = i
-                                break
-
-                frame_counter += 1
-                if frame_counter % step == 0:
-                    frame = self._mask_from_patches(path, (H, W), offs)
-                    frames.append(frame)
-                continue
-
-            # Try to turn right first (wall-following rule)
-            right_dir = (direction + 1) % 4
-            right_pos = (
-                current[0] + directions[right_dir][0],
-                current[1] + directions[right_dir][1],
-            )
-
-            if (
-                0 <= right_pos[0] < free.shape[0]
-                and 0 <= right_pos[1] < free.shape[1]
-                and free[right_pos]
-                and right_pos not in visited
-            ):
-                # Can turn right
-                direction = right_dir
-                current = right_pos
-            else:
-                # Try to go straight
-                straight_pos = (
-                    current[0] + directions[direction][0],
-                    current[1] + directions[direction][1],
-                )
-
-                if (
-                    0 <= straight_pos[0] < free.shape[0]
-                    and 0 <= straight_pos[1] < free.shape[1]
-                    and free[straight_pos]
-                    and straight_pos not in visited
-                ):
-                    current = straight_pos
-                else:
-                    # Try to turn left
-                    left_dir = (direction - 1) % 4
-                    left_pos = (
-                        current[0] + directions[left_dir][0],
-                        current[1] + directions[left_dir][1],
-                    )
-
-                    if (
-                        0 <= left_pos[0] < free.shape[0]
-                        and 0 <= left_pos[1] < free.shape[1]
-                        and free[left_pos]
-                        and left_pos not in visited
-                    ):
-                        direction = left_dir
-                        current = left_pos
-                    else:
-                        # Turn around as last resort
-                        direction = (direction + 2) % 4
-                        continue
-
-            visited.add(current)
-            path.append(current)
-
-            frame_counter += 1
-            if frame_counter % step == 0:
-                frame = self._mask_from_patches(path, (H, W), offs)
-                frames.append(frame)
-
-        # Add final frames showing the solution
-        if current == goal:
-            final_frame = self._mask_from_patches(path, (H, W), offs)
-            for _ in range(5):  # Add the final solution a few times for emphasis
-                frames.append(final_frame)
-
-        return frames
-
     def get_intermediate_supervision_masks(self, input_rgb, step=1) -> List[np.ndarray]:
         if self.mode == "incremental":
             return self.get_incremental_path_masks(input_rgb, step=step)
-        elif self.mode == "reverse_exploration":
+        elif self.mode == "reverse":
             return self.get_reverse_exploration_masks(input_rgb, step=step)
-        elif self.mode == "bfs":
-            return self.get_bfs_masks(input_rgb, step=step)
-        elif self.mode == "incremental_bidirectional":
+        elif self.mode == "bidirectional":
             return self.get_incremental_path_masks_bidirectional(input_rgb, step=step)
-        elif self.mode == "astar":
-            return self.get_astar_masks(input_rgb, step=step)
         elif self.mode == "dfs":
             return self.get_dfs_masks(input_rgb, step=step)
-
-
-def plot_solution_length_distribution(
-    dataset_path: str,
-):
-    """
-    Plot histograms of frame lengths produced by MazeSolver on entire train dataset
-
-    Returns
-    (inter_lengths, reverse_lengths, stats) : tuple
-        Lists of lengths and a pandas DataFrame with stats.
-    """
-    dataset_name = dataset_path.split("/")[-2]
-    mazes = np.load(dataset_path)
-    solver = MazeSolver()
-
-    inter_lengths, reverse_lengths, bfs_lengths = [], [], []
-    for maze in tqdm(mazes):
-        inter_lengths.append(len(solver.get_incremental_path_masks(maze, step=1)))
-        reverse_lengths.append(len(solver.get_reverse_exploration_masks(maze, step=1)))
-        bfs_lengths.append(len(solver.get_bfs_masks(maze, step=1)))
-
-    stats = pd.DataFrame(
-        {"incremental": inter_lengths, "reverse": reverse_lengths, "bfs": bfs_lengths}
-    )
-    print(stats.describe().to_string(float_format="%.2f"))
-
-    fig, axes = plt.subplots(1, 3, figsize=(14, 6), sharey=True, dpi=120)
-
-    for ax, data, label in zip(
-        axes,
-        [inter_lengths, reverse_lengths, bfs_lengths],
-        ["Incremental path frames", "Reverse-exploration frames", "BFS frames"],
-    ):
-        bins = range(min(data), max(data) + 3, 2)
-        ax.hist(data, bins=bins, edgecolor="black", alpha=0.85)
-
-        mean, med = np.mean(data), np.median(data)
-        ax.axvline(
-            mean,
-            color="tab:orange",
-            linestyle="--",
-            linewidth=2,
-            label=f"mean = {mean:.1f}",
-        )
-        ax.axvline(
-            med,
-            color="tab:green",
-            linestyle=":",
-            linewidth=2,
-            label=f"median = {med:.1f}",
-        )
-
-        ax.set_title(label, fontsize=12, pad=10)
-        ax.set_xlabel("frames")
-        ax.grid(alpha=0.3, linestyle=":")
-        ax.legend(frameon=False)
-
-    axes[0].set_ylabel("frequency")
-
-    fig.suptitle(
-        f"MazeSolver solution length distributions for {dataset_name}",
-        fontsize=16,
-        weight="bold",
-    )
-    fig.tight_layout(rect=[0, 0, 1, 0.94])
-
-    if not os.path.exists("figures"):
-        os.makedirs("figures")
-    fig.savefig(f"figures/lengths_dist_{dataset_name}", dpi=300)
-
-    return inter_lengths, reverse_lengths, bfs_lengths, stats
-
-
-if __name__ == "__main__":
-    path = "data/maze_data_test_33/inputs.npy"
-    inputs = np.load(path)
-
-    MAZE_INDEX = 5
-    maze = inputs[MAZE_INDEX]
-    maze_solver = MazeSolver()
-
-    # masks = maze_solver.get_astar_masks_colored(maze, step=3)
-    # masks = maze_solver.get_dfs_masks_colored(maze, step=1)
-    # colors = colormap_for_astar()
-    # fig = plot_colored_masks(masks, colors, save_path="figures/dfs_colored_masks.png")
-
-    masks_dfs = maze_solver.get_bfs_masks(maze, step=3)
-    plot_maze_and_intermediate_masks_ultra_fast(maze, masks_dfs, type="bfsnew")

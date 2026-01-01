@@ -1,14 +1,3 @@
-"""training.py
-Utilities for training models
-
-Collaboratively developed
-by Avi Schwarzschild, Eitan Borgnia,
-Arpit Bansal, and Zeyad Emam.
-
-Developed for DeepThinking project
-October 2021
-"""
-
 import typing
 from dataclasses import dataclass
 from random import randrange
@@ -106,14 +95,16 @@ def get_output_for_prog_loss(inputs, max_iters, net):
 
 
 def train(net, loaders, mode, train_setup, device):
+    """Updated train function with combined mode"""
+    # if mode == "combined":
+    #     train_loss, acc = train_combined(net, loaders, train_setup, device)
+    #     return train_loss, acc
     if mode == "progressive":
         train_loss, acc = train_progressive(net, loaders, train_setup, device)
-
     elif mode == "intermediate":
         train_loss, acc = train_with_intermediate_supervision(
             net, loaders, train_setup, device
         )
-
     else:
         train_loss, acc = train_default(net, loaders, train_setup, device)
 
@@ -140,15 +131,6 @@ def train_with_intermediate_supervision(net, loaders, train_setup, device):
     correct = 0
     total = 0
     T_max = 0
-
-    debug_stats = {
-        "final_losses": [],
-        "intermediate_losses": [],
-        "intermediate_losses_global": [],
-        "path_lengths": [],
-        "alpha_values": [],
-        "loss_ratios": [],
-    }
 
     for batch_idx, (inputs, targets) in enumerate(tqdm(trainloader, leave=False)):
         inputs, targets = inputs.to(device), targets.to(device).long()
@@ -194,58 +176,21 @@ def train_with_intermediate_supervision(net, loaders, train_setup, device):
                 all_outputs, path_lens
             )  # (B, T)  True where t<path_len
             mask_valid = mask_valid.unsqueeze(-1).unsqueeze(-1)  # (B, T, 1, 1)
-
-            # Improved normalization: consider normalizing per sample then averaging
             valid_losses = loss_map * mask_valid
 
-            # Option 1: global normalization
-            interm_loss_global = valid_losses.sum() / mask_valid.sum()
-
-            # Option 2: per-sample normalization
+            # per-sample normalization
             sample_losses = valid_losses.sum(dim=[1, 2, 3])  # Sum over T,H,W
             sample_counts = mask_valid.sum(dim=[1, 2, 3])  # Count valid positions
             sample_avg_losses = sample_losses / (sample_counts + 1e-8)  # Avoid div by 0
-            interm_loss_balanced = sample_avg_losses.mean()
-
-            # Use balanced version
-            interm_loss = interm_loss_balanced
+            interm_loss = sample_avg_losses.mean()
 
         else:
             interm_loss = torch.tensor(0.0, device=inputs.device)
-
-        # === Adaptive alpha based on path length variance ===
-        if alpha != 0 and alpha != 1:
-            avg_path_len = torch.tensor(path_lens).float().mean()
-            path_len_std = torch.tensor(path_lens).float().std()
-
-            if path_len_std > avg_path_len * 0.5:  # High variance
-                adaptive_alpha = alpha * 0.8  # Reduce intermediate supervision
-            else:
-                adaptive_alpha = alpha
-        else:
-            adaptive_alpha = alpha
 
         # === Combine losses ===
         loss = (1 - alpha) * loss_max_iters.mean() + alpha * interm_loss.mean()
         loss.backward()
 
-        # === Debugging: Log loss components ===
-        if batch_idx % 100 == 0:  # Log every 10 batches
-            debug_stats["final_losses"].append(loss.item())
-            debug_stats["intermediate_losses"].append(interm_loss.item())
-            debug_stats["intermediate_losses_global"].append(interm_loss_global.item())
-            debug_stats["path_lengths"].extend(path_lens if alpha != 0 else [0])
-            debug_stats["alpha_values"].append(adaptive_alpha)
-            debug_stats["loss_ratios"].append(interm_loss.item() / (loss.item() + 1e-8))
-
-            print(
-                f"Batch {batch_idx}: Final Loss: {loss.item():.4f}, "
-                f"Per-sample-avg Intermediate Loss: {interm_loss.item():.4f}, "
-                f"Global Intermediate Loss: {interm_loss_global.item():.4f}, "
-                f"Alpha: {alpha:.3f}, "
-                f"Adaptive Alpha: {adaptive_alpha:.3f}, "
-            )
-            
         if clip:
             torch.nn.utils.clip_grad_norm_(net.parameters(), clip)
         optimizer.step()
@@ -293,7 +238,7 @@ def train_progressive(net, loaders, train_setup, device):
 
         # get fully unrolled loss if alpha is not 1 (if it is 1, this loss term is not used
         # so we save time by settign it equal to 0).
-        outputs_max_iters, _ = net(inputs, iters_to_do=max_iters)
+        outputs_max_iters, _, _= net(inputs, iters_to_do=max_iters)
         if alpha != 1:
             outputs_max_iters = outputs_max_iters.view(
                 outputs_max_iters.size(0), outputs_max_iters.size(1), -1
@@ -372,7 +317,7 @@ def train_default(net, loaders, train_setup, device):
         optimizer.zero_grad()
 
         # ---------- forward for full budget ----------
-        logits, _ = net(inputs, iters_to_do=max_iters)  # (B, 2, H, W)
+        logits, _, _ = net(inputs, iters_to_do=max_iters)  # (B, 2, H, W)
         logits = logits.view(logits.size(0), logits.size(1), -1)
 
         loss = ce(logits, targets)  # (B, P)

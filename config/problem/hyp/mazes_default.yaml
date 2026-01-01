@@ -16,4 +16,4 @@ train_mode: intermediate
 val_period: 20
 warmup_period: 10
 mazesolver_mode: reverse_exploration
-step: 1
+step: 3
